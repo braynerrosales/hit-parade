@@ -1,0 +1,20 @@
+{
+  "rules": {
+    "songs": {
+      ".read": true,
+      "$songId": {
+        ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid)",
+        ".validate": "newData.hasChildren(['title', 'by', 'uid', 'at']) && newData.child('uid').val() === auth.uid && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 80 && newData.child('by').isString() && newData.child('by').val().length <= 30 && (!newData.child('artist').exists() || (newData.child('artist').isString() && newData.child('artist').val().length <= 60)) && (!newData.child('why').exists() || (newData.child('why').isString() && newData.child('why').val().length <= 120))"
+      }
+    },
+    "ratings": {
+      ".read": true,
+      "$songId": {
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['stars', 'name']) && newData.child('stars').isNumber() && newData.child('stars').val() >= 1 && newData.child('stars').val() <= 5 && newData.child('name').isString() && newData.child('name').val().length <= 30"
+        }
+      }
+    }
+  }
+}

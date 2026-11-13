@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hit Parade en Vivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Rubik:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+/* Una columna tipo "lista de éxitos": marcador grande con el promedio y estrellas para votar */
+:root {
+  --bg: #F4EEFF; --panel: #FFFFFF; --ink: #1E1433; --muted: #6B5F85; --line: #DCD2F0;
+  --pink: #E8226E; --pink-soft: #FFD9E8; --sun: #FFC93C; --sun-ink: #3A2A00; --star-off: #D6CCEA;
+  --display: "Bagel Fat One", "Arial Black", Impact, sans-serif;
+  --body: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Space Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #160E26; --panel: #22183A; --ink: #F3ECFF; --muted: #A99BC6; --line: #3A2D58;
+    --pink: #FF5C9A; --pink-soft: #4A1A35; --sun: #FFD25E; --sun-ink: #2A1E00; --star-off: #4A3D69;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.45; }
+[hidden] { display: none !important; }
+.wrap {
+  max-width: 760px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+  display: flex; flex-direction: column; gap: 22px;
+}
+header { display: flex; flex-direction: column; gap: 8px; }
+.toprow { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.onair { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; background: var(--pink); color: #fff; padding: 4px 10px; border-radius: 4px; display: inline-flex; align-items: center; gap: 8px; }
+.onair i { width: 8px; height: 8px; border-radius: 50%; background: #fff; display: inline-block; animation: blink 1.4s infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.who { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.who b { color: var(--ink); }
+.link { background: none; border: none; padding: 2px; color: var(--pink); text-decoration: underline; cursor: pointer; font: inherit; }
+.link:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(44px, 10vw, 72px); line-height: .95; margin: 4px 0 0; letter-spacing: -.01em; }
+h1 span { color: var(--pink); }
+.sub { color: var(--muted); margin: 0; max-width: 58ch; }
+.stats { font-family: var(--mono); font-size: 13px; color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.stats b { color: var(--ink); }
+.notice { background: var(--pink-soft); border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+
+form.add {
+  background: var(--panel); border: 2px solid var(--ink); border-radius: 14px; padding: 16px;
+  display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; box-shadow: 5px 5px 0 var(--ink);
+}
+form.add .note { grid-column: 1 / 3; }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); min-width: 0; }
+input.t {
+  font-family: var(--body); font-size: 16px; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--line);
+  background: var(--bg); color: var(--ink); width: 100%; text-transform: none; letter-spacing: 0;
+}
+input.t:focus-visible { outline: 3px solid var(--sun); outline-offset: 1px; border-color: var(--ink); }
+.btn { font-family: var(--body); font-weight: 700; font-size: 15px; border: 2px solid var(--ink); border-radius: 999px; padding: 10px 18px; background: var(--sun); color: var(--sun-ink); cursor: pointer; white-space: nowrap; }
+.btn:hover { transform: translateY(-1px); }
+.btn:focus-visible { outline: 3px solid var(--pink); outline-offset: 2px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+form.add .btn { grid-column: 3; grid-row: 1 / span 2; align-self: stretch; }
+.formmsg { grid-column: 1 / -1; margin: 0; font-size: 14px; color: var(--pink); }
+.formmsg:empty { display: none; }
+
+ol.chart { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.song { background: var(--panel); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px 12px 10px; display: grid; grid-template-columns: 52px 1fr auto; gap: 6px 12px; align-items: center; }
+.song.top { border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--pink); }
+.rank { font-family: var(--display); font-size: 32px; text-align: center; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; }
+.song.top .rank { color: var(--pink); }
+.info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.title { font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
+.artist { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.meta { font-size: 12px; color: var(--muted); font-family: var(--mono); overflow-wrap: anywhere; }
+.why { font-size: 13px; font-style: italic; color: var(--muted); overflow-wrap: anywhere; }
+.badge { align-self: flex-start; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; background: var(--sun); color: var(--sun-ink); padding: 2px 7px; border-radius: 4px; margin-bottom: 2px; }
+.score { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.avg { font-family: var(--display); font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+.avg.none { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.mini { font-size: 14px; letter-spacing: 1px; line-height: 1; }
+.mini .on { color: var(--pink); } .mini .off { color: var(--star-off); }
+.count { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.bottom { grid-column: 2 / -1; display: flex; align-items: center; justify-content: space-between; gap: 8px 14px; flex-wrap: wrap; border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 4px; }
+.rate { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rate .lbl { font-size: 12px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.stars { display: inline-flex; }
+.star { background: none; border: none; cursor: pointer; font-size: 28px; line-height: 1; padding: 2px 3px; color: var(--star-off); transition: transform .12s; }
+.star.on { color: var(--pink); }
+.stars:hover .star { color: var(--pink); }
+.stars .star:hover ~ .star { color: var(--star-off); }
+.star:hover { transform: scale(1.15); }
+.star:focus-visible { outline: 2px solid var(--sun); border-radius: 4px; }
+.star:disabled { cursor: default; }
+.actions { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+.voters { grid-column: 2 / -1; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; color: var(--ink); }
+.chip b { color: var(--pink); font-variant-numeric: tabular-nums; }
+
+.empty { text-align: center; padding: 36px 16px; border: 2px dashed var(--line); border-radius: 14px; color: var(--muted); }
+.empty strong { display: block; font-family: var(--display); font-weight: 400; font-size: 26px; color: var(--ink); margin-bottom: 6px; }
+footer { font-size: 13px; color: var(--muted); }
+
+.gate { position: fixed; inset: 0; background: rgba(20, 10, 40, .55); display: grid; place-items: center; padding: 16px; z-index: 20; }
+.gate form { background: var(--panel); border: 2px solid var(--ink); border-radius: 16px; box-shadow: 6px 6px 0 var(--pink); padding: 22px; width: min(420px, 100%); display: flex; flex-direction: column; gap: 14px; }
+.gate h2 { font-family: var(--display); font-weight: 400; font-size: 30px; margin: 0; line-height: 1; }
+.gate p { margin: 0; color: var(--muted); font-size: 14px; }
+
+@media (max-width: 560px) {
+  form.add { grid-template-columns: 1fr; }
+  form.add .note, form.add .btn { grid-column: 1; grid-row: auto; }
+  .song { grid-template-columns: 36px 1fr auto; gap: 6px 10px; }
+  .rank { font-size: 24px; }
+  .avg { font-size: 28px; }
+  .bottom, .voters { grid-column: 1 / -1; }
+  .star { font-size: 30px; }
+}
+@media (prefers-reduced-motion: reduce) { .onair i { animation: none; } .star { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="toprow">
+      <span class="onair"><i></i> En vivo</span>
+      <span class="who" id="who" hidden>Votando como <b id="whoName"></b> <button type="button" class="link" id="changeName">cambiar</button></span>
+    </div>
+    <h1>Hit <span>Parade</span></h1>
+    <p class="sub">Agrega canciones y califícalas del 1 al 5. El ranking se ordena por el promedio de todos y se actualiza en vivo.</p>
+    <div class="stats" id="stats"><span>Conectando…</span></div>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <form class="add" id="addForm" autocomplete="off">
+    <label class="f">Canción<input class="t" id="fTitle" maxlength="80" required placeholder="Ej. Bohemian Rhapsody"></label>
+    <label class="f">Artista<input class="t" id="fArtist" maxlength="60" placeholder="Ej. Queen"></label>
+    <label class="f note">Comentario (opcional)<input class="t" id="fWhy" maxlength="120" placeholder="Ej. La que nunca falta en una fiesta"></label>
+    <button class="btn" type="submit" id="addBtn">Agregar</button>
+    <p class="formmsg" id="formMsg" role="status"></p>
+  </form>
+
+  <ol class="chart" id="chart"></ol>
+  <div class="empty" id="empty" hidden>
+    <strong>Todavía no hay canciones</strong>
+    Agrega la primera arriba y que empiece la votación.
+  </div>
+
+  <footer>Toca las estrellas para calificar. Toca otra vez la misma estrella para quitar tu voto.</footer>
+</div>
+
+<div class="gate" id="gate" hidden>
+  <form id="nameForm" autocomplete="off">
+    <h2>¿Cómo te llamas?</h2>
+    <p>Tu nombre aparece junto a tus votos y las canciones que agregues. No hace falta registrarse.</p>
+    <label class="f">Nombre<input class="t" id="fName" maxlength="30" required placeholder="Ej. Ana"></label>
+    <button class="btn" type="submit">Entrar a votar</button>
+  </form>
+</div>
+
+<script type="module">
+/* ============================================================
+   CONFIGURACIÓN DE FIREBASE
+   Publicada en Firebase Hosting, la página lee su configuración
+   sola desde /__/firebase/init.json: no hay que pegar nada.
+   Solo si la publicas en otro lado, pega aquí el firebaseConfig.
+   Sin configuración, corre en modo demo (votos solo en este navegador).
+   ============================================================ */
+const manualConfig = {
+  apiKey: "PEGA_AQUI",
+  authDomain: "",
+  databaseURL: "",
+  projectId: "",
+  appId: "",
+};
+
+const FB = "https://www.gstatic.com/firebasejs/10.12.2/";
+let firebaseConfig = null;
+async function loadConfig() {
+  if (manualConfig.apiKey && !manualConfig.apiKey.startsWith("PEGA")) return manualConfig;
+  try {
+    const r = await fetch("/__/firebase/init.json", { cache: "no-store" });
+    if (!r.ok) return null;
+    const c = await r.json();
+    if (!c.apiKey) return null;
+    if (!c.databaseURL && c.projectId) c.databaseURL = `https://${c.projectId}-default-rtdb.firebaseio.com`;
+    return c;
+  } catch { return null; }
+}
+const $ = (id) => document.getElementById(id);
+const ss = { get(k) { try { return sessionStorage.getItem(k); } catch { return null; } }, set(k, v) { try { sessionStorage.setItem(k, v); } catch {} } };
+const ls = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+const state = { uid: null, name: ss.get("hp_name") || "", songs: {}, ratings: {}, live: false };
+let store = null;
+
+/* ---------- Almacenamiento: Firebase o demo local ---------- */
+async function firebaseStore() {
+  const { initializeApp } = await import(FB + "firebase-app.js");
+  const { getAuth, signInAnonymously, onAuthStateChanged } = await import(FB + "firebase-auth.js");
+  const { getDatabase, ref, onValue, push, set, remove, update } = await import(FB + "firebase-database.js");
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getDatabase(app);
+  const uid = await new Promise((resolve, reject) => {
+    const off = onAuthStateChanged(auth, (u) => {
+      if (u) { off(); resolve(u.uid); } else signInAnonymously(auth).catch(reject);
+    });
+  });
+  return {
+    uid,
+    onSongs: (cb, err) => onValue(ref(db, "songs"), (s) => cb(s.val() || {}), err),
+    onRatings: (cb, err) => onValue(ref(db, "ratings"), (s) => cb(s.val() || {}), err),
+    addSong: (data) => set(push(ref(db, "songs")), { ...data, uid, at: Date.now() }),
+    deleteSong: (id) => remove(ref(db, "songs/" + id)),
+    rate: (songId, stars, name) => set(ref(db, `ratings/${songId}/${uid}`), { stars, name, at: Date.now() }),
+    unrate: (songId) => remove(ref(db, `ratings/${songId}/${uid}`)),
+    rename: (name, songIds) => {
+      const u = {};
+      songIds.forEach((id) => { u[`ratings/${id}/${uid}/name`] = name; });
+      return Object.keys(u).length ? update(ref(db), u) : Promise.resolve();
+    },
+  };
+}
+
+function demoStore() {
+  const KEY = "hp_demo";
+  let data; try { data = JSON.parse(ls.get(KEY)) || null; } catch { data = null; }
+  if (!data) data = { songs: {}, ratings: {} };
+  let uid = ls.get("hp_demo_uid"); if (!uid) { uid = "demo-" + Math.random().toString(36).slice(2, 10); ls.set("hp_demo_uid", uid); }
+  const subs = { songs: [], ratings: [] };
+  const emit = () => { ls.set(KEY, JSON.stringify(data)); subs.songs.forEach((f) => f(structuredClone(data.songs))); subs.ratings.forEach((f) => f(structuredClone(data.ratings))); };
+  return {
+    uid,
+    onSongs: (cb) => { subs.songs.push(cb); setTimeout(() => cb(structuredClone(data.songs))); },
+    onRatings: (cb) => { subs.ratings.push(cb); setTimeout(() => cb(structuredClone(data.ratings))); },
+    addSong: async (d) => { data.songs["s" + Date.now().toString(36)] = { ...d, uid, at: Date.now() }; emit(); },
+    deleteSong: async (id) => { delete data.songs[id]; emit(); },
+    rate: async (id, stars, name) => { (data.ratings[id] ||= {})[uid] = { stars, name, at: Date.now() }; emit(); },
+    unrate: async (id) => { if (data.ratings[id]) delete data.ratings[id][uid]; emit(); },
+    rename: async (name, ids) => { ids.forEach((id) => { if (data.ratings[id]?.[uid]) data.ratings[id][uid].name = name; }); emit(); },
+  };
+}
+
+/* ---------- Interfaz ---------- */
+function notice(msg) { $("notice").textContent = msg || ""; $("notice").hidden = !msg; }
+const clean = (v, n) => String(v ?? "").trim().slice(0, n);
+
+function computed() {
+  return Object.entries(state.songs).map(([id, s]) => {
+    const votes = Object.entries(state.ratings[id] || {})
+      .map(([u, r]) => ({ uid: u, stars: Math.round(Number(r?.stars)), name: clean(r?.name, 30) || "Alguien" }))
+      .filter((v) => v.stars >= 1 && v.stars <= 5);
+    const avg = votes.length ? votes.reduce((t, v) => t + v.stars, 0) / votes.length : null;
+    const mine = votes.find((v) => v.uid === state.uid)?.stars || 0;
+    return { id, title: clean(s?.title, 80) || "Sin título", artist: clean(s?.artist, 60), why: clean(s?.why, 120), by: clean(s?.by, 30) || "Alguien", uid: s?.uid, at: Number(s?.at) || 0, votes, avg, mine };
+  }).sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1) || b.votes.length - a.votes.length || a.at - b.at);
+}
+
+function render() {
+  const songs = computed();
+  const chart = $("chart");
+  const totalVotes = songs.reduce((t, s) => t + s.votes.length, 0);
+  const voters = new Set(songs.flatMap((s) => s.votes.map((v) => v.uid))).size;
+  $("stats").replaceChildren(...[["Canciones", songs.length], ["Calificaciones", totalVotes], ["Votantes", voters]].map(([k, v]) => {
+    const s = document.createElement("span"); s.append(k + ": "); const b = document.createElement("b"); b.textContent = v; s.append(b); return s;
+  }));
+  $("empty").hidden = !state.live || songs.length > 0;
+
+  const keep = new Set();
+  songs.forEach((s, i) => {
+    keep.add(s.id);
+    let li = chart.querySelector(`li[data-id="${CSS.escape(s.id)}"]`) || buildRow(s);
+    chart.appendChild(li);
+    const top = i === 0 && s.avg !== null;
+    li.classList.toggle("top", top);
+    li.querySelector(".badge").hidden = !top;
+    li.querySelector(".rank").textContent = i + 1;
+    const avg = li.querySelector(".avg");
+    avg.classList.toggle("none", s.avg === null);
+    avg.textContent = s.avg === null ? "Sin votos" : s.avg.toFixed(1);
+    const mini = li.querySelector(".mini");
+    mini.hidden = s.avg === null;
+    const filled = Math.round(s.avg || 0);
+    mini.innerHTML = [1, 2, 3, 4, 5].map((n) => `<span class="${n <= filled ? "on" : "off"}">★</span>`).join("");
+    mini.setAttribute("aria-label", s.avg === null ? "" : `Promedio ${s.avg.toFixed(1)} de 5`);
+    const count = li.querySelector(".count");
+    count.hidden = s.votes.length === 0;
+    count.textContent = s.votes.length === 1 ? "1 voto" : `${s.votes.length} votos`;
+    li.querySelectorAll(".star").forEach((b) => {
+      const n = Number(b.dataset.n);
+      b.classList.toggle("on", n <= s.mine);
+      b.setAttribute("aria-pressed", n === s.mine);
+      b.disabled = !state.uid;
+    });
+    li.querySelector(".del").hidden = !(state.uid && s.uid === state.uid);
+    const vl = li.querySelector(".voters");
+    vl.replaceChildren(...s.votes.sort((a, b) => b.stars - a.stars).map((v) => {
+      const c = document.createElement("span"); c.className = "chip"; c.append(v.name + " "); const b = document.createElement("b"); b.textContent = v.stars + "★"; c.append(b); return c;
+    }));
+    const tog = li.querySelector(".toggle");
+    tog.hidden = s.votes.length === 0;
+    if (s.votes.length === 0) vl.hidden = true;
+    tog.textContent = vl.hidden ? "Ver quién votó" : "Ocultar votos";
+  });
+  chart.querySelectorAll("li").forEach((li) => { if (!keep.has(li.dataset.id)) li.remove(); });
+}
+
+function buildRow(s) {
+  const li = document.createElement("li"); li.className = "song"; li.dataset.id = s.id;
+  li.innerHTML = `<div class="rank"></div>
+    <div class="info"><span class="badge" hidden>N.º 1</span><span class="title"></span><span class="artist"></span><span class="why"></span><span class="meta"></span></div>
+    <div class="score"><span class="avg"></span><span class="mini" role="img"></span><span class="count"></span></div>
+    <div class="bottom">
+      <div class="rate"><span class="lbl">Tu voto</span><span class="stars">${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="star" data-n="${n}" aria-label="${n} de 5">★</button>`).join("")}</span></div>
+      <div class="actions"><button type="button" class="link toggle">Ver quién votó</button><span class="delwrap"><button type="button" class="link del">Quitar canción</button></span></div>
+    </div>
+    <div class="voters" hidden></div>`;
+  li.querySelector(".title").textContent = s.title;
+  li.querySelector(".artist").textContent = s.artist || "Artista desconocido";
+  const why = li.querySelector(".why"); why.textContent = s.why; why.hidden = !s.why;
+  li.querySelector(".meta").textContent = "Agregada por " + s.by;
+  li.querySelectorAll(".star").forEach((b) => b.addEventListener("click", () => rate(s.id, Number(b.dataset.n))));
+  li.querySelector(".toggle").addEventListener("click", () => { const v = li.querySelector(".voters"); v.hidden = !v.hidden; render(); });
+  li.querySelector(".del").addEventListener("click", () => askDelete(s.id, li.querySelector(".delwrap")));
+  return li;
+}
+
+function askDelete(id, wrap) {
+  const btn = wrap.querySelector(".del");
+  const box = document.createElement("span");
+  box.innerHTML = `¿Seguro? <button type="button" class="link" data-a="y">Sí, quitar</button> <button type="button" class="link" data-a="n">No</button>`;
+  btn.hidden = true; wrap.append(box);
+  box.querySelector('[data-a="n"]').onclick = () => { box.remove(); btn.hidden = false; };
+  box.querySelector('[data-a="y"]').onclick = () => store.deleteSong(id).catch(() => { notice("No se pudo quitar la canción."); box.remove(); btn.hidden = false; });
+}
+
+function rate(songId, n) {
+  if (!store || !state.name) { askName(); return; }
+  const current = (state.ratings[songId] || {})[state.uid]?.stars;
+  const p = current === n ? store.unrate(songId) : store.rate(songId, n, state.name);
+  p.catch(() => notice("No se guardó tu voto. Revisa tu conexión e intenta otra vez."));
+}
+
+function setName(name) {
+  const old = state.name;
+  state.name = name; ss.set("hp_name", name); ls.set("hp_last_name", name);
+  $("whoName").textContent = name; $("who").hidden = false;
+  if (store && old && old !== name) {
+    const mine = Object.keys(state.ratings).filter((id) => state.ratings[id]?.[state.uid]);
+    store.rename(name, mine).catch(() => {});
+  }
+}
+function askName() {
+  $("fName").value = state.name || ls.get("hp_last_name") || "";
+  $("gate").hidden = false; $("fName").focus();
+}
+$("nameForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const n = clean($("fName").value, 30);
+  if (!n) return;
+  setName(n); $("gate").hidden = true;
+});
+$("changeName").addEventListener("click", askName);
+
+$("addForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("formMsg"); msg.textContent = "";
+  const title = clean($("fTitle").value, 80), artist = clean($("fArtist").value, 60), why = clean($("fWhy").value, 120);
+  if (!title) { msg.textContent = "Escribe el nombre de la canción."; return; }
+  if (!state.name) { askName(); return; }
+  if (!store) { msg.textContent = "Todavía estamos conectando. Intenta en unos segundos."; return; }
+  const dup = computed().find((s) => s.title.toLowerCase() === title.toLowerCase() && s.artist.toLowerCase() === artist.toLowerCase());
+  if (dup) { msg.textContent = "Esa canción ya está en la lista. ¡Califícala!"; return; }
+  $("addBtn").disabled = true;
+  try { await store.addSong({ title, artist, why, by: state.name }); $("addForm").reset(); $("fTitle").focus(); }
+  catch { msg.textContent = "No se pudo agregar. Intenta de nuevo."; }
+  finally { $("addBtn").disabled = false; }
+});
+
+async function start() {
+  if (state.name) setName(state.name); else askName();
+  render();
+  const timer = setTimeout(() => { if (!state.live) notice("No logramos conectar con la votación. Revisa tu internet y recarga la página."); }, 10000);
+  firebaseConfig = await loadConfig();
+  const DEMO = !firebaseConfig;
+  try { store = DEMO ? demoStore() : await firebaseStore(); }
+  catch (e) {
+    clearTimeout(timer); console.error(e);
+    notice("No se pudo conectar con la votación. Recarga la página en un momento."); $("stats").textContent = "Sin conexión"; return;
+  }
+  state.uid = store.uid;
+  if (DEMO) notice("Modo demo: la página no encontró su configuración de Firebase, así que los votos solo se guardan en este navegador.");
+  const onErr = (e) => { console.error(e); notice("Se perdió la conexión con la votación. Recarga la página."); };
+  let gotSongs = false, gotRatings = false;
+  const ready = () => { if (gotSongs && gotRatings && !state.live) { state.live = true; clearTimeout(timer); } };
+  store.onSongs((v) => { state.songs = v; gotSongs = true; ready(); render(); }, onErr);
+  store.onRatings((v) => { state.ratings = v; gotRatings = true; ready(); render(); }, onErr);
+}
+start();
+</script>
+</body>
+</html>
